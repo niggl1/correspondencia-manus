@@ -1,0 +1,188 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================
+    // FUNÇÕES AUXILIARES
+    // ============================================
+    
+    // Verifica se o usuário está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Obtém dados do usuário autenticado
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    // Verifica se o usuário possui uma role específica
+    function hasRole(role) {
+      return isAuthenticated() && getUserData().role == role;
+    }
+    
+    // Verifica se o usuário possui uma das roles especificadas
+    function hasAnyRole(roles) {
+      return isAuthenticated() && getUserData().role in roles;
+    }
+    
+    // Verifica se o usuário pertence ao mesmo condomínio
+    function isSameCondominio(condominioId) {
+      return isAuthenticated() && getUserData().condominioId == condominioId;
+    }
+    
+    // Verifica se é admin ou adminMaster
+    function isAdmin() {
+      return hasAnyRole(['admin', 'adminMaster']);
+    }
+    
+    // Verifica se é responsável, admin ou adminMaster
+    function isResponsavelOrHigher() {
+      return hasAnyRole(['responsavel', 'admin', 'adminMaster']);
+    }
+    
+    // ============================================
+    // COLEÇÃO: users (usuários do sistema)
+    // ============================================
+    match /users/{userId} {
+      // Usuário pode ler seus próprios dados
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Usuário pode atualizar seus próprios dados (exceto role e condominioId)
+      allow update: if isAuthenticated() && request.auth.uid == userId
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'condominioId']);
+      
+      // Admins podem ler qualquer usuário
+      allow read: if isAdmin();
+      
+      // Responsáveis podem ler usuários do mesmo condomínio
+      allow read: if hasRole('responsavel') && resource.data.condominioId == getUserData().condominioId;
+      
+      // Apenas admins podem criar e deletar usuários
+      allow create, delete: if isAdmin();
+      
+      // Admins podem atualizar qualquer campo
+      allow update: if isAdmin();
+    }
+    
+    // ============================================
+    // COLEÇÃO: condominios
+    // ============================================
+    match /condominios/{condominioId} {
+      // AdminMaster pode fazer tudo
+      allow read, write: if hasRole('adminMaster');
+      
+      // Usuários autenticados do mesmo condomínio podem ler
+      allow read: if isAuthenticated() && isSameCondominio(condominioId);
+      
+      // Admin pode criar e editar condomínios
+      allow create, update: if hasRole('admin');
+      
+      // Responsável pode atualizar seu próprio condomínio
+      allow update: if hasRole('responsavel') && isSameCondominio(condominioId);
+    }
+    
+    // ============================================
+    // COLEÇÃO: blocos
+    // ============================================
+    match /blocos/{blocoId} {
+      // Qualquer usuário autenticado do mesmo condomínio pode ler
+      allow read: if isAuthenticated() && isSameCondominio(resource.data.condominioId);
+      
+      // Responsáveis e superiores podem criar/editar/deletar
+      allow create, update, delete: if isResponsavelOrHigher() 
+                                    && (request.resource.data.condominioId == getUserData().condominioId || isAdmin());
+    }
+    
+    // ============================================
+    // COLEÇÃO: unidades
+    // ============================================
+    match /unidades/{unidadeId} {
+      // Qualquer usuário autenticado do mesmo condomínio pode ler
+      allow read: if isAuthenticated() && isSameCondominio(resource.data.condominioId);
+      
+      // Responsáveis e superiores podem criar/editar/deletar
+      allow create, update, delete: if isResponsavelOrHigher()
+                                    && (request.resource.data.condominioId == getUserData().condominioId || isAdmin());
+    }
+    
+    // ============================================
+    // COLEÇÃO: porteiros
+    // ============================================
+    match /porteiros/{porteiroId} {
+      // Qualquer usuário autenticado do mesmo condomínio pode ler
+      allow read: if isAuthenticated() && isSameCondominio(resource.data.condominioId);
+      
+      // Responsáveis e superiores podem criar/editar/deletar
+      allow create, update, delete: if isResponsavelOrHigher()
+                                    && (request.resource.data.condominioId == getUserData().condominioId || isAdmin());
+    }
+    
+    // ============================================
+    // COLEÇÃO: correspondencias
+    // ============================================
+    match /correspondencias/{correspondenciaId} {
+      // Qualquer usuário autenticado do mesmo condomínio pode ler
+      allow read: if isAuthenticated() && isSameCondominio(resource.data.condominioId);
+      
+      // Morador pode ler suas próprias correspondências
+      allow read: if isAuthenticated() && resource.data.moradorId == request.auth.uid;
+      
+      // Porteiro, responsável e superiores podem criar
+      allow create: if hasAnyRole(['porteiro', 'responsavel', 'admin', 'adminMaster']);
+      
+      // Porteiro, responsável e superiores podem atualizar (marcar como retirado)
+      allow update: if hasAnyRole(['porteiro', 'responsavel', 'admin', 'adminMaster']) 
+                    && isSameCondominio(resource.data.condominioId);
+      
+      // Apenas admins podem deletar
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // COLEÇÃO: moradores
+    // ============================================
+    match /moradores/{moradorId} {
+      // Qualquer usuário autenticado do mesmo condomínio pode ler
+      allow read: if isAuthenticated() && isSameCondominio(resource.data.condominioId);
+      
+      // Responsáveis e superiores podem criar/editar/deletar
+      allow create, update, delete: if isResponsavelOrHigher()
+                                    && (request.resource.data.condominioId == getUserData().condominioId || isAdmin());
+    }
+    
+    // ============================================
+    // COLEÇÃO: avisosRapidos
+    // ============================================
+    match /avisosRapidos/{avisoId} {
+      // Qualquer usuário autenticado do mesmo condomínio pode ler
+      allow read: if isAuthenticated() && isSameCondominio(resource.data.condominioId);
+      
+      // Porteiro, responsável e superiores podem criar/editar
+      allow create, update: if hasAnyRole(['porteiro', 'responsavel', 'admin', 'adminMaster'])
+                           && isSameCondominio(request.resource.data.condominioId);
+      
+      // Responsáveis e superiores podem deletar
+      allow delete: if isResponsavelOrHigher() && isSameCondominio(resource.data.condominioId);
+    }
+    
+    // ============================================
+    // COLEÇÃO: templates (templates de mensagens)
+    // ============================================
+    match /templates/{templateId} {
+      // Qualquer usuário autenticado do mesmo condomínio pode ler
+      allow read: if isAuthenticated() && isSameCondominio(resource.data.condominioId);
+      
+      // Responsáveis e superiores podem criar/editar/deletar
+      allow create, update, delete: if isResponsavelOrHigher()
+                                    && isSameCondominio(request.resource.data.condominioId);
+    }
+    
+    // ============================================
+    // Regra padrão: negar tudo que não foi explicitamente permitido
+    // ============================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
