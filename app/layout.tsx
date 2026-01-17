@@ -122,6 +122,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR" translate="no" suppressHydrationWarning>
       <head>
+        {/* ===== GOOGLE ANALYTICS ===== */}
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-8EQNKTHZ2C"></script>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-8EQNKTHZ2C');
+            `,
+          }}
+        />
         {/* ===== SCHEMA.ORG STRUCTURED DATA (JSON-LD) ===== */}
         <script
           type="application/ld+json"
