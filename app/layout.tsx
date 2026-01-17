@@ -88,10 +88,7 @@ export const metadata: Metadata = {
 
   // ===== VERIFICAÇÃO DE PROPRIEDADE =====
   verification: {
-    // Adicione aqui os códigos de verificação quando disponíveis:
-    // google: "seu-codigo-google-search-console",
-    // yandex: "seu-codigo-yandex",
-    // bing: "seu-codigo-bing",
+    google: "kaxOOcZ9E7TisK11XcK0qSnn4ik2dpct5tq_dkB_XS8",
   },
 
   // ===== OUTRAS CONFIGURAÇÕES =====
