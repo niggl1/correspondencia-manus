@@ -9,6 +9,11 @@ export default function NotFound() {
   const pathname = usePathname();
 
   useEffect(() => {
+    // Permite acesso direto a arquivos de verificação do Google
+    if (pathname.startsWith('/google') && pathname.endsWith('.html')) {
+      return; // Não redireciona arquivos de verificação
+    }
+
     // Tenta detectar se a URL é um link de protocolo antigo vindo de QR Code
     // Ex: /dashboard-porteiro/635744
     const regex = /\/dashboard-porteiro\/(\d+)/;

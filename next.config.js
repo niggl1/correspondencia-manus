@@ -33,6 +33,16 @@ const nextConfig = {
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
 
+  // Rewrites para arquivos especiais
+  async rewrites() {
+    return [
+      {
+        source: '/google7e64177092e9a42d.html',
+        destination: '/api/google-verification',
+      },
+    ];
+  },
+
   // Headers de segurança
   async headers() {
     return [
